@@ -2,7 +2,7 @@ import axios from 'axios'
 import { getToken } from './auth'
 import { ElMessage } from 'element-plus'
 
-const service = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL, timeout: 30000 })
+const service = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '', timeout: 30000 })
 
 // 亲求拦截器配置
 service.interceptors.request.use(

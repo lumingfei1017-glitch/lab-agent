@@ -3,8 +3,8 @@
     <div class="login-box">
       <h1 style="text-align: center; font-size: 38px">实验室预约系统</h1>
       <div style="margin-top: 8px; margin-bottom: 30px">基于Agent的实验室预约系统</div>
-      <el-form :model="form" label-width="auto" style="max-width: 600px">
-        <el-form-item>
+      <el-form ref="formRef" :rules="rules" :model="form" label-width="0px" style="width: 100%">
+        <el-form-item prop="username">
           <el-input
             size="large"
             v-model="form.username"
@@ -14,7 +14,7 @@
           </el-input>
         </el-form-item>
 
-        <el-form-item>
+        <el-form-item prop="password">
           <el-input
             type="password"
             size="large"
@@ -36,7 +36,8 @@
           >
         </div>
         <div style="text-align: right; margin-top: 5px">
-          没有账号？请 <a style="color: var(--el-color-primary)" href="/register">注册</a>
+          没有账号？请
+          <router-link style="color: var(--el-color-primary)" to="/register">注册</router-link>
         </div>
       </el-form>
     </div>
@@ -52,6 +53,12 @@ import { loginApi } from '@/api/auth'
 import { useUser } from '@/utils/user'
 const { saveLoginData } = useUser()
 
+const formRef = ref()
+const rules = {
+  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+}
+
 const form = reactive({
   username: '',
   password: ''
@@ -60,13 +67,21 @@ const form = reactive({
 const loadingValue = ref(false)
 
 const login = async () => {
+  const avalid = await formRef.value.validate().catch(() => false) //表单校验
+  if (!avalid) {
+    return
+  }
+
   loadingValue.value = true
-  const res = await loginApi(form)
-  loadingValue.value = false
-  if (res.code === 200) {
-    saveLoginData(res.data)
-    ElMessage.success('登录成功')
-    router.push('/manager/home')
+  try {
+    const res = await loginApi(form)
+    if (res.code === 200) {
+      saveLoginData(res.data)
+      ElMessage.success('登录成功')
+      await router.push('/manager/home') //???
+    }
+  } finally {
+    loadingValue.value = false
   }
 }
 </script>

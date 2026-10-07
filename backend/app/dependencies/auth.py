@@ -18,13 +18,16 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效"
         )
+
     user_id = payload.get("user_id")
+
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的登录凭证"
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
+    # user = db.query(User).filter(User.id == user_id).first()
+    user = db.get(User, user_id)
 
     if user is None:
         raise HTTPException(

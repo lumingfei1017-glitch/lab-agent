@@ -1,0 +1,39 @@
+from sqlalchemy.orm import Session
+from app.common.exceptions import BuinessException
+from app.models.user import User
+from app.schemas.auth import LoginRequest, LoginResponse, RegisterRequest
+from app.schemas.user import UserResponse
+from app.utils import password
+from app.utils.password import hash_password, verify_password
+from app.utils.jwt import create_access_token
+
+
+def login(db: Session, data: LoginRequest):
+    user = db.query(User).filter(User.username == data.username).first()
+
+    if not user or not verify_password(data.password, user.password):
+        raise BuinessException(message="账号或密码错误")
+
+    if not user.status:
+        raise BuinessException(message="账号异常请联系管理员")
+
+    token = create_access_token(user_id=user.id)
+    return LoginResponse(token=token, user=UserResponse.model_validate(user))
+
+
+def register(db: Session, data: RegisterRequest):
+    user = db.query(User).filter(User.username == data.username).first()
+
+    if user:
+        raise BuinessException(message="账号已经存在")
+    user_model = User(
+        username=data.username,
+        password=hash_password(data.password),
+        name=data.name or data.username,
+        role="student",
+        status=1,
+    )
+
+    db.add(user_model)
+    db.commit()
+    db.refresh(user_model)
