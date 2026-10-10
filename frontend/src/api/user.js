@@ -44,19 +44,18 @@ export function createUserApi(data) {
 }
 
 //修改用户
-export function updateUserApi(data) {
+export function updateUserApi(userId, data) {
   return request({
-    url: '/api/user/${userId}',
+    url: `/api/user/${userId}`,
     method: 'put',
     data
   })
 }
 
 //删除用户
-export function deleteUserApi(data) {
+export function deleteUserApi(userId) {
   return request({
-    url: '/api/user/${{userId}}',
-    method: 'delete',
-    data
+    url: `/api/user/${userId}`,
+    method: 'delete'
   })
 }
