@@ -24,3 +24,39 @@ export function updatePasswordAPI(data) {
     data
   })
 }
+
+//分页模糊查询用户列表
+export function getUserPageList(params) {
+  return request({
+    url: '/api/user/page',
+    method: 'get',
+    params
+  })
+}
+
+//新增用户
+export function createUserApi(data) {
+  return request({
+    url: '/api/user',
+    method: 'post',
+    data
+  })
+}
+
+//修改用户
+export function updateUserApi(data) {
+  return request({
+    url: '/api/user/${userId}',
+    method: 'put',
+    data
+  })
+}
+
+//删除用户
+export function deleteUserApi(data) {
+  return request({
+    url: '/api/user/${{userId}}',
+    method: 'delete',
+    data
+  })
+}

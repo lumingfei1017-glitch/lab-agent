@@ -14,13 +14,26 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PasswordUpdateRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class UserCreateResquest(BaseModel):
+    username: str
+    password: str = "123"
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    avatar: str | None = None
+    role: str = "student"
+    status: int = 1
+
+
 class UserUpdateRequest(BaseModel):
     name: str | None = None
     email: str | None = None
     phone: str | None = None
     avatar: str | None = None
-
-
-class PasswordUpdateRequest(BaseModel):
-    old_password: str
-    new_password: str
+    role: str | None = None
+    status: int | None = None
