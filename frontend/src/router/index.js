@@ -14,7 +14,29 @@ const router = createRouter({
         { path: 'lab', name: 'Lab', component: () => import('@/views/Lab.vue') },
         { path: 'profile', name: 'Progile', component: () => import('@/views/Profile.vue') },
         { path: 'password', name: 'Password', component: () => import('@/views/Password.vue') },
-        { path: 'user', name: 'User', component: () => import('@/views/User.vue') }
+        { path: 'user', name: 'User', component: () => import('@/views/User.vue') },
+        { path: 'equipment', name: 'Equipmend', component: () => import('@/views/Equipment.vue') },
+        { path: 'lablist', name: 'LabList', component: () => import('@/views/LabList.vue') },
+        {
+          path: 'lab-equipment',
+          name: 'LabEquipment',
+          component: () => import('@/views/LabEquipment.vue')
+        },
+        {
+          path: 'my-reservation',
+          name: 'MyReservation',
+          component: () => import('@/views/MyReservation.vue')
+        },
+        {
+          path: 'audit-reservation',
+          name: 'AuditReservation',
+          component: () => import('@/views/AuditReservation.vue')
+        },
+        {
+          path: 'ai-chat',
+          name: 'AIChat',
+          component: () => import('@/views/AIChat.vue')
+        }
       ]
     },
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue') },

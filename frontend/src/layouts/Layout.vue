@@ -39,17 +39,34 @@
               <el-icon><icon-menu /></el-icon>
               系统首页
             </el-menu-item>
+            <el-menu-item index="/manager/lablist" v-if="userInfo?.role === 'student'">
+              <el-icon><OfficeBuilding /></el-icon>
+              实验室列表
+            </el-menu-item>
             <el-menu-item v-if="userInfo?.role === 'admin'" index="/manager/lab">
               <el-icon><House /></el-icon>
               实验室管理
             </el-menu-item>
-            <el-menu-item v-if="userInfo?.role === 'admin'" index="/manager/equ">
+            <el-menu-item v-if="userInfo?.role === 'admin'" index="/manager/equipment">
               <el-icon><Setting /></el-icon>
               设备列表管理
             </el-menu-item>
             <el-menu-item v-if="userInfo?.role === 'admin'" index="/manager/user">
               <el-icon><User /></el-icon>
               用户管理
+            </el-menu-item>
+            <el-menu-item v-if="userInfo?.role === 'student'" index="/manager/my-reservation">
+              <el-icon><Tickets /></el-icon>
+              我的预约
+            </el-menu-item>
+
+            <el-menu-item v-if="userInfo?.role === 'admin'" index="/manager/audit-reservation">
+              <el-icon><DocumentChecked /></el-icon>
+              预约审核
+            </el-menu-item>
+            <el-menu-item index="/manager/ai-chat">
+              <el-icon><ChatDotRound /></el-icon>
+              AI智能助手
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -63,7 +80,16 @@
 
 <script setup>
 import router from '@/router'
-import { Menu as IconMenu, House, Setting, User } from '@element-plus/icons-vue'
+import {
+  Menu as IconMenu,
+  House,
+  Setting,
+  User,
+  OfficeBuilding,
+  DocumentChecked,
+  Tickets,
+  ChatDotRound
+} from '@element-plus/icons-vue'
 import { logout } from '@/utils/auth'
 import { useUser } from '@/utils/user'
 import { ElMain, ElMessage } from 'element-plus'
