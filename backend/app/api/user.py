@@ -1,22 +1,15 @@
-import token
-from tokenize import Decnumber
 from app.services import user_service
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app import services
 from app.common.response import Response
 from app.dependencies.auth import get_current_admin, get_current_user
-from app.schemas.auth import LoginRequest
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import (
     PasswordUpdateRequest,
-    UserCreateResquest,
-    UserResponse,
+    UserCreateRequest,
     UserUpdateRequest,
 )
-from app.utils.password import verify_password
-from app.utils.jwt import create_access_token
 
 router = APIRouter(prefix="/user", tags=["用户信息"])
 
@@ -70,7 +63,7 @@ def get_user_list(
 
 @router.post("")
 def create_user(
-    data: UserCreateResquest,
+    data: UserCreateRequest,
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -85,7 +78,7 @@ def update_user(
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    res = user_service.updata_user(db, user_id, data)
+    res = user_service.update_user(db, user_id, data)
     return Response.success(data=res)
 
 

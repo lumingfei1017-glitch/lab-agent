@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from typing import Any
 
 from langchain_openai import ChatOpenAI
@@ -7,7 +7,7 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from sqlalchemy.orm import Session
-from app.common.exceptions import BuinessException
+from app.common.exceptions import BusinessException
 from app.config import settings
 from app.models.user import User
 from app.schemas.ai import ChatRequest
@@ -63,7 +63,7 @@ def build_agent(db: Session, current_user: User):
 def run_agent(db: Session, current_user: User, data: ChatRequest):
     """大模型对话"""
     if not data.messages:
-        raise BuinessException(message="对话内容为空")
+        raise BusinessException(message="对话内容为空")
     history = []
     for message in data.messages:
         if message.role == "user" and message.content.strip():
@@ -72,7 +72,7 @@ def run_agent(db: Session, current_user: User, data: ChatRequest):
             history.append(AIMessage(content=message.content.strip()))
 
     if not history:
-        raise BuinessException(message="请输入要对话的内容")
+        raise BusinessException(message="请输入要对话的内容")
 
     agent = build_agent(db, current_user)
     try:
@@ -81,15 +81,15 @@ def run_agent(db: Session, current_user: User, data: ChatRequest):
             config={"recursion_limit": 15},
         )  # 设置对话循环的上限是10轮
 
-    except BuinessException:
+    except BusinessException:
         raise
     except Exception:
         logger.exception("Agent 执行失败")
-        raise BuinessException(message="大模型调用失败，请稍后重试")
+        raise BusinessException(message="大模型调用失败，请稍后重试")
 
     messages = result.get("messages") or []
     if not messages:
-        raise BuinessException(message="大模型没有返回任何内容")
+        raise BusinessException(message="大模型没有返回任何内容")
     for message in reversed(messages):
         if isinstance(message, AIMessage) and message.content.strip():
             content = message.content.strip()
@@ -147,13 +147,13 @@ def _build_history(data: ChatRequest) -> list:
             history.append(AIMessage(content=message.content.strip()))
 
     if not history:
-        raise BuinessException(message="请输入你要对话的内容")
+        raise BusinessException(message="请输入你要对话的内容")
     return history
 
 
 async def stream_agent(
     db: Session, current_user: User, data: ChatRequest
-) -> Iterator[dict]:
+) -> AsyncIterator[dict]:
     """
     生成器：边跑Agent 边 yield事件，供SSE推给前端
     事件类型 status/tool_start/tool_end/token/token/done/error
@@ -199,7 +199,7 @@ async def stream_agent(
                     yield {"type": "token", "content": text}
         yield {"type": "done"}
 
-    except BuinessException as exc:
+    except BusinessException as exc:
         yield {"type": "error", "message": exc.message}
 
     except Exception:

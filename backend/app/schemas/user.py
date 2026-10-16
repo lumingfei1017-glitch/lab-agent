@@ -19,7 +19,7 @@ class PasswordUpdateRequest(BaseModel):
     new_password: str
 
 
-class UserCreateResquest(BaseModel):
+class UserCreateRequest(BaseModel):
     username: str
     password: str = "123"
     name: str | None = None

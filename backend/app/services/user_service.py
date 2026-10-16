@@ -1,15 +1,15 @@
-from operator import or_
+from sqlalchemy import or_
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import BuinessException
+from app.common.exceptions import BusinessException
 from app.common.response import PageResponse
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import (
     PasswordUpdateRequest,
-    UserCreateResquest,
+    UserCreateRequest,
     UserResponse,
     UserUpdateRequest,
 )
@@ -33,9 +33,9 @@ def update_user_info(db: Session, user: User, data: UserUpdateRequest):
 
 def update_password(db: Session, user: User, data: PasswordUpdateRequest):
     if not verify_password(data.old_password, user.password):
-        raise BuinessException(message="原密码错误")
+        raise BusinessException(message="原密码错误")
     if data.new_password == data.old_password:
-        raise BuinessException(message="新密码不能与原密码相同")
+        raise BusinessException(message="新密码不能与原密码相同")
     user.password = hash_password(data.new_password)
     db.commit()
     # return UserResponse.model_validate(user)
@@ -62,11 +62,11 @@ def get_user_page_list(
     )
 
 
-def create_user(db: Session, data: UserCreateResquest):
+def create_user(db: Session, data: UserCreateRequest):
     """新增用户"""
     exist = db.query(User).filter(User.username == data.username).first()
     if exist:
-        raise BuinessException(message="账号已存在")
+        raise BusinessException(message="账号已存在")
     user = User(
         username=data.username,
         password=hash_password(data.password),
@@ -83,11 +83,11 @@ def create_user(db: Session, data: UserCreateResquest):
     return UserResponse.model_validate(user)
 
 
-def updata_user(db: Session, user_id: int, data: UserUpdateRequest):
+def update_user(db: Session, user_id: int, data: UserUpdateRequest):
     """更新用户"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise BuinessException(message="用户不存在")
+        raise BusinessException(message="用户不存在")
 
     payload = data.model_dump(exclude_none=True)
     for field, value in payload.items():
@@ -101,11 +101,11 @@ def updata_user(db: Session, user_id: int, data: UserUpdateRequest):
 def delete_user(db: Session, user_id: int, current_user: User):
     """删除用户"""
     if user_id == current_user.id:
-        raise BuinessException(message="不可删除当前登录账号")
+        raise BusinessException(message="不可删除当前登录账号")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise BuinessException(message="用户不存在")
+        raise BusinessException(message="用户不存在")
 
     db.delete(user)
     db.commit()

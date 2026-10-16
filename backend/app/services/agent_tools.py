@@ -7,10 +7,9 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.api import equipment
-from app.common.exceptions import BuinessException
-from app.models.Reservation import Reservation
+from app.common.exceptions import BusinessException
 from app.models.user import User
+from app.schemas.reservation import ReservationCreateRequest
 from app.services import equipment_service, kb_service, lab_service, reservation_service
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ def build_tools(db: Session, current_user: User):
 
         try:
             keywords = keywords.strip()
-            page = equipment_service.get_equiment_page_list(
+            page = equipment_service.get_equipment_page_list(
                 db, page=1, page_size=10, keywords=keywords, lab_id=lab_id
             )
 
@@ -120,7 +119,7 @@ def build_tools(db: Session, current_user: User):
         if too_many_calls():
             return "已达工具调用上限，请立即生成最终回答。"
         try:
-            data = Reservation(
+            data = ReservationCreateRequest(
                 lab_id=lab_id,
                 equipment_id=equipment_id,
                 date=date,
@@ -141,7 +140,7 @@ def build_tools(db: Session, current_user: User):
                 },
                 ensure_ascii=False,
             )
-        except BuinessException as exc:
+        except BusinessException as exc:
             logger.exception("create_lab_reservation 失败")
             return json.dumps({"ok": False, "error": exc.message}, ensure_ascii=False)
         except Exception as exc:

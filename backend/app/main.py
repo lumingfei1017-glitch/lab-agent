@@ -13,11 +13,11 @@ from app.models.Reservation import Reservation
 from app.database import Base, engine
 from app.api import api
 from app.common.exceptions import (
-    BuinessException,
-    http_excpetion_hadler,
-    bussioness_excpetion_hadler,
-    global_excpetion_hadler,
-    validation_excpetion_hadler,
+    BusinessException,
+    http_exception_handler,
+    business_exception_handler,
+    global_exception_handler,
+    validation_exception_handler,
 )
 from app.services import kb_service, reservation_service
 import asyncio
@@ -59,11 +59,11 @@ app.add_middleware(
 app.include_router(api)
 
 # 注册自定义异常
-app.add_exception_handler(BuinessException, bussioness_excpetion_hadler)
-app.add_exception_handler(HTTPException, http_excpetion_hadler)
-app.add_exception_handler(RequestValidationError, validation_excpetion_hadler)
+app.add_exception_handler(BusinessException, business_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 # 全局异常兜底，需放在最后注册
-app.add_exception_handler(Exception, global_excpetion_hadler)
+app.add_exception_handler(Exception, global_exception_handler)
 
 # 挂载静态文件访问路径
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")

@@ -1,5 +1,3 @@
-from xml.dom import Node
-from anyio import CapacityLimiter
 from pydantic import BaseModel, ConfigDict
 
 
@@ -17,7 +15,7 @@ class LabResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class LabCreateResquest(BaseModel):
+class LabCreateRequest(BaseModel):
     name: str
     location: str | None
     capacity: int = 0
@@ -28,7 +26,7 @@ class LabCreateResquest(BaseModel):
     status: int = 1
 
 
-class LabUpdateResquest(BaseModel):
+class LabUpdateRequest(BaseModel):
     name: str | None = None
     location: str | None = None
     capacity: int | None = None

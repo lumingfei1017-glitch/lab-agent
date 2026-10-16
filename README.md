@@ -64,9 +64,9 @@ lab-agent/
 - 请求经 `Authorization: Bearer <token>` 鉴权；写操作与用户管理接口要求 `role == "admin"`。
 - 被禁用（`status = 0`）的账号既不能登录，已有 token 也会被拒绝。
 
-| 角色 | 可见菜单 |
-| --- | --- |
-| 学生 | 系统首页、实验室列表、我的预约、AI 智能助手 |
+| 角色   | 可见菜单                                                            |
+| ------ | ------------------------------------------------------------------- |
+| 学生   | 系统首页、实验室列表、我的预约、AI 智能助手                         |
 | 管理员 | 系统首页、实验室管理、设备列表管理、用户管理、预约审核、AI 智能助手 |
 
 ### 实验室与设备
@@ -85,7 +85,12 @@ lab-agent/
    └── 用户取消 / 时段过期 ──> 3 已取消
 ```
 
-创建时的校验：日期不得早于今天、结束时间不得早于开始时间、当天开始时间不得早于当前时间、实验室必须开放且时段落在其开放时间内、设备必须存在且状态正常、与已有 `待审核/已通过` 记录时段重叠则拒绝。
+创建时的校验：日期不得早于今天、结束时间不得早于开始时间、当天开始时间不得早于当前时间、实验室必须开放且时段落在其开放时间内、设备必须存在且状态正常且确实属于所选实验室。
+
+冲突判定分两种情况：
+
+- **预约实验室**（`equipment_id` 为空）：同一实验室同一天的有效预约（状态 `0/1`）时段不得重叠，整间实验室同一时刻只允许一条记录。
+- **预约设备**：按设备 `quantity` 做**并发台数校验**——同一设备同一时段的重叠有效预约数达到 `quantity` 时拒绝，并提示「已全部被预约」。占用数是实时从 `reservations` 聚合算出的，不在 `equipments` 表上冗余存储，因此不会出现字段漂移，也不需要数据迁移。
 
 列表接口对管理员返回全部记录、对学生只返回本人记录，并用 `joinedload` 一次性带出用户/实验室/设备名。
 
@@ -93,7 +98,7 @@ lab-agent/
 
 ### 文件上传
 
-`POST /api/files/upload`，单文件上限 100MB，后缀白名单：
+`POST /api/files/upload`（需登录），单文件上限 100MB，后缀白名单：
 `.jpg .jpeg .png .gif .webp .pdf .doc .docx .xls .xlsx .zip`。
 落盘为重命名后的 `毫秒时间戳_uuid8位.ext`，返回 `/uploads/<disk_name>` 相对 URL，由 FastAPI `StaticFiles` 挂载对外访问（头像、实验室封面、设备图片走这里）。
 
@@ -101,13 +106,13 @@ lab-agent/
 
 Agent 用 LangGraph 搭了一个最小的 agent ⇄ tools 循环图，工具通过闭包绑定当前请求的 `db` 会话与登录用户，因此**工具调用天然带上用户身份和权限**：
 
-| 工具 | 作用 |
-| --- | --- |
-| `search_lab_docs` | 在 Chroma 知识库中语义检索规则/安全/开放时间等资料（同一问题去重，只查一次） |
-| `list_open_labs` | 查询真实存在且状态为开放的实验室 |
-| `list_lab_equipments` | 查询指定实验室的设备 |
-| `create_lab_reservation` | 真实落库创建预约（提交后进入待审核） |
-| `get_today` | 返回服务器当前日期，用于「明天/后天」这类相对时间换算 |
+| 工具                     | 作用                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `search_lab_docs`        | 在 Chroma 知识库中语义检索规则/安全/开放时间等资料（同一问题去重，只查一次） |
+| `list_open_labs`         | 查询真实存在且状态为开放的实验室                                             |
+| `list_lab_equipments`    | 查询指定实验室的设备                                                         |
+| `create_lab_reservation` | 真实落库创建预约（提交后进入待审核）                                         |
+| `get_today`              | 返回服务器当前日期，用于「明天/后天」这类相对时间换算                        |
 
 防护与约束：单轮对话最多 8 次工具调用（超限直接要求模型基于已有信息作答），`recursion_limit` 限制图循环次数，工具异常被捕获后以 JSON 返回给模型而不是抛出 500。系统提示词强制要求：**提交预约前必须复述实验室/设备、日期、起止时间并取得用户明确「确认」**，缺 `lab_id`/`equipment_id` 时先查再建，不允许编造库中不存在的数据。
 
@@ -119,40 +124,40 @@ RAG 侧：`SentenceTransformerEmbeddingFunction("BAAI/bge-small-zh-v1.5")` + `ch
 
 所有接口前缀 `/api`，统一响应体 `{ code, message, data }`（`code == 200` 为成功），分页数据为 `{ list, total }`。
 
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| POST | `/auth/login` | 公开 | 登录，返回 token + 用户信息 |
-| POST | `/auth/register` | 公开 | 注册（固定为学生） |
-| GET | `/user/me` | 登录 | 当前用户信息 |
-| PUT | `/user/me` | 登录 | 修改个人信息 |
-| PUT | `/user/password` | 登录 | 修改密码 |
-| GET | `/user/page` | 管理员 | 用户分页列表 |
-| POST / PUT / DELETE | `/user`、`/user/{id}` | 管理员 | 新增 / 修改 / 删除用户 |
-| GET | `/lab/list` | 登录 | 实验室分页列表（`keywords`、`status`） |
-| GET | `/lab/{id}` | 登录 | 实验室详情 |
-| POST / PUT / DELETE | `/lab`、`/lab/{id}` | 管理员 | 新增 / 修改 / 删除实验室 |
-| GET | `/equipment/list` | 登录 | 设备分页列表（`keywords`、`lab_id`） |
-| POST / PUT / DELETE | `/equipment`、`/equipment/{id}` | 管理员 | 新增 / 修改 / 删除设备 |
-| POST | `/reservation` | 登录 | 创建预约 |
-| GET | `/reservation/list` | 登录 | 预约列表（管理员见全部，学生见本人） |
-| PUT | `/reservation/{id}/cancel` | 登录 | 取消自己的待审核预约 |
-| PUT | `/reservation/{id}/audit` | 管理员 | 审核通过 / 拒绝 |
-| POST | `/files/upload` | — | 文件上传（当前未加鉴权依赖） |
-| POST | `/ai/chat` | 登录 | Agent 对话（一次性返回完整回答） |
-| POST | `/ai/chat/stream` | 登录 | Agent 对话（SSE 流式） |
+| 方法                | 路径                            | 权限   | 说明                                   |
+| ------------------- | ------------------------------- | ------ | -------------------------------------- |
+| POST                | `/auth/login`                   | 公开   | 登录，返回 token + 用户信息            |
+| POST                | `/auth/register`                | 公开   | 注册（固定为学生）                     |
+| GET                 | `/user/me`                      | 登录   | 当前用户信息                           |
+| PUT                 | `/user/me`                      | 登录   | 修改个人信息                           |
+| PUT                 | `/user/password`                | 登录   | 修改密码                               |
+| GET                 | `/user/page`                    | 管理员 | 用户分页列表                           |
+| POST / PUT / DELETE | `/user`、`/user/{id}`           | 管理员 | 新增 / 修改 / 删除用户                 |
+| GET                 | `/lab/list`                     | 登录   | 实验室分页列表（`keywords`、`status`） |
+| GET                 | `/lab/{id}`                     | 登录   | 实验室详情                             |
+| POST / PUT / DELETE | `/lab`、`/lab/{id}`             | 管理员 | 新增 / 修改 / 删除实验室               |
+| GET                 | `/equipment/list`               | 登录   | 设备分页列表（`keywords`、`lab_id`）   |
+| POST / PUT / DELETE | `/equipment`、`/equipment/{id}` | 管理员 | 新增 / 修改 / 删除设备                 |
+| POST                | `/reservation`                  | 登录   | 创建预约                               |
+| GET                 | `/reservation/list`             | 登录   | 预约列表（管理员见全部，学生见本人）   |
+| PUT                 | `/reservation/{id}/cancel`      | 登录   | 取消自己的待审核预约                   |
+| PUT                 | `/reservation/{id}/audit`       | 管理员 | 审核通过 / 拒绝                        |
+| POST                | `/files/upload`                 | 登录   | 文件上传                               |
+| POST                | `/ai/chat`                      | 登录   | Agent 对话（一次性返回完整回答）       |
+| POST                | `/ai/chat/stream`               | 登录   | Agent 对话（SSE 流式）                 |
 
 ### SSE 事件格式
 
 `POST /api/ai/chat/stream` 返回 `text/event-stream`，每帧形如 `data:{"type": "..."}\n\n`：
 
-| `type` | 附带字段 | 含义 |
-| --- | --- | --- |
-| `status` | `message` | 阶段提示（如「正在思考」） |
-| `tool_start` | `name`、`label` | 开始调用某个工具 |
-| `tool_end` | `name`、`label`、`preview` | 工具返回，`preview` 截断到 200 字符 |
-| `token` | `content` | 模型输出的增量文本（打字机效果） |
-| `done` | — | 本轮结束 |
-| `error` | `message` | 业务异常或模型调用失败 |
+| `type`       | 附带字段                   | 含义                                |
+| ------------ | -------------------------- | ----------------------------------- |
+| `status`     | `message`                  | 阶段提示（如「正在思考」）          |
+| `tool_start` | `name`、`label`            | 开始调用某个工具                    |
+| `tool_end`   | `name`、`label`、`preview` | 工具返回，`preview` 截断到 200 字符 |
+| `token`      | `content`                  | 模型输出的增量文本（打字机效果）    |
+| `done`       | —                          | 本轮结束                            |
+| `error`      | `message`                  | 业务异常或模型调用失败              |
 
 前端 `frontend/src/api/ai.js` 用 `fetch` + `ReadableStream` 手动解析（而非 `EventSource`，因为需要携带 JWT），`AIChat.vue` 把 `token` 增量拼进正文、把 `tool_start/tool_end` 渲染成过程流水，正文经 `marked` 转 HTML 后用 `DOMPurify.sanitize` 过滤。
 
@@ -160,12 +165,12 @@ RAG 侧：`SentenceTransformerEmbeddingFunction("BAAI/bge-small-zh-v1.5")` + `ch
 
 ## 环境与依赖
 
-| 层 | 版本要求 |
-| --- | --- |
-| Python | 3.12 |
-| Node.js | `^22.18.0 \|\| >=24.12.0` |
-| MySQL | 5.7+ / 8.x，需 `utf8mb4` |
-| 其他 | Git；首次运行知识库灌库与 embedding 推理需要下载 `BAAI/bge-small-zh-v1.5`（离线环境请预先缓存） |
+| 层      | 版本要求                                                                                        |
+| ------- | ----------------------------------------------------------------------------------------------- |
+| Python  | 3.12                                                                                            |
+| Node.js | `^22.18.0 \|\| >=24.12.0`                                                                       |
+| MySQL   | 5.7+ / 8.x，需 `utf8mb4`                                                                        |
+| 其他    | Git；首次运行知识库灌库与 embedding 推理需要下载 `BAAI/bge-small-zh-v1.5`（离线环境请预先缓存） |
 
 后端主要依赖（`backend/requirements.txt`）：`fastapi` `uvicorn` `sqlalchemy` `pymysql` `pydantic-settings` `bcrypt` `PyJWT` `chromadb` `langgraph` `langchain-openai` `langchain-core`。
 
@@ -220,15 +225,15 @@ UPDATE users SET role = 'admin' WHERE username = '你的账号';
 
 ## 环境配置（`backend/.env`）
 
-| 变量 | 示例 | 说明 |
-| --- | --- | --- |
-| `DATABASE_URL` | `mysql+pymysql://root:密码@127.0.0.1:3306/lab_agent` | SQLAlchemy 连接串 |
-| `JWT_SECRET_KEY` | 随机字符串 | 生产环境务必更换，建议 32 字节以上随机值 |
-| `JWT_EXPIRE_HOURS` | `24` | token 有效期（小时） |
-| `JWT_ALGORITHM` | `HS256` | 签名算法 |
-| `LLM_API_KEY` | `sk-...` | 大模型服务密钥 |
-| `LLM_BASE_URL` | `https://.../v1` | OpenAI 兼容接口地址 |
-| `LLM_MODEL` | 模型名 | Agent 使用的模型（`temperature=0`，开启 streaming） |
+| 变量               | 示例                                                 | 说明                                                |
+| ------------------ | ---------------------------------------------------- | --------------------------------------------------- |
+| `DATABASE_URL`     | `mysql+pymysql://root:密码@127.0.0.1:3306/lab_agent` | SQLAlchemy 连接串                                   |
+| `JWT_SECRET_KEY`   | 随机字符串                                           | 生产环境务必更换，建议 32 字节以上随机值            |
+| `JWT_EXPIRE_HOURS` | `24`                                                 | token 有效期（小时）                                |
+| `JWT_ALGORITHM`    | `HS256`                                              | 签名算法                                            |
+| `LLM_API_KEY`      | `sk-...`                                             | 大模型服务密钥                                      |
+| `LLM_BASE_URL`     | `https://.../v1`                                     | OpenAI 兼容接口地址                                 |
+| `LLM_MODEL`        | 模型名                                               | Agent 使用的模型（`temperature=0`，开启 streaming） |
 
 任何 OpenAI 兼容的模型服务都可以接入（LangChain 侧走 `ChatOpenAI` + `base_url`），模型名以所选服务的文档为准。
 
@@ -260,12 +265,3 @@ cd frontend && npm run format     # Prettier 格式化 src/（.prettierrc.json�
 前端统一从 `@/` 别名（指向 `src/`）导入；所有请求走 `utils/request.js`，响应拦截器负责弹出 `ElMessage.error` 与 401 自动登出跳转。
 
 ---
-
-## 已知限制
-
-- 表结构靠启动时 `create_all`，无迁移工具（Alembic）；字段变更后需手动改表或重建库。
-- 设备无按预约自动扣减库存/占用的逻辑，`quantity` 目前只是登记信息。
-- 预约时段以 `HH:MM` 字符串比较实现，不跨天；同一实验室与同一设备的冲突判定分开处理。
-- 实验室搜索用的是 `ilike(f"%{keywords}")`（只有一个通配符，实际是「以关键字结尾」），设备搜索才是 `%kw%` 的双边模糊；两者行为不一致。
-- 无自动化测试；异常类与部分函数命名存在拼写遗留（`BuinessException`、`get_equiment_page_list`、`ReserveDialog` 等），改动时注意全局引用。
-- `api/equipment.py` 与 `api/user.py` 中残留 `import token` / `from tokenize import Decnumber` 等无效导入，`kb_service.search` 内有调试 `print`，可顺手清理。

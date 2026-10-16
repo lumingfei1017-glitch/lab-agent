@@ -1,7 +1,6 @@
 from chromadb.api.models.Collection import Collection
 from chromadb.utils import embedding_functions
 import chromadb
-from jwt import encode
 import threading
 from app.config import BASE_DIR
 
@@ -95,6 +94,5 @@ def search(query: str):
         name = meta.get("source") or ""
         score_parts.append({"score": score, "content": f"[{name}]\n{doc}"})
     score_parts.sort(key=lambda x: x["score"], reverse=True)
-    print(score_parts)
     final_parts = [item["content"] for item in score_parts[:2]]
     return "\n\n".join(final_parts)

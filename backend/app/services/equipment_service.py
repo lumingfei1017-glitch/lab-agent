@@ -1,10 +1,7 @@
-from ast import Eq
-
 from sqlalchemy.orm import Session
 
-from app.common.exceptions import BuinessException
+from app.common.exceptions import BusinessException
 from app.common.response import PageResponse
-from app.models import equipment
 from app.models.equipment import Equipment
 from app.models.lab import Lab
 from app.schemas.equipment import (
@@ -14,7 +11,7 @@ from app.schemas.equipment import (
 )
 
 
-def get_equiment_page_list(
+def get_equipment_page_list(
     db: Session,
     page: int,
     page_size: int,
@@ -47,10 +44,19 @@ def get_equiment_page_list(
 
 def create_equipment(db: Session, data: EquipmentCreateRequest):
     """新增"""
-    exist = db.query(Equipment).filter(Equipment.name == data.name)
+    lab = db.query(Lab).filter(Lab.id == data.lab_id).first()
+    if not lab:
+        raise BusinessException(message="实验室不存在")
+
+    # 与 update_equipment 保持一致：同名设备只受同一实验室限制
+    exist = (
+        db.query(Equipment)
+        .filter(Equipment.lab_id == data.lab_id, Equipment.name == data.name)
+        .first()
+    )
 
     if exist:
-        BuinessException(message="设备已存在")
+        raise BusinessException(message="同一实验室不允许出现同名仪器")
 
     equipment = Equipment(**data.model_dump())
     db.add(equipment)
@@ -66,7 +72,7 @@ def update_equipment(db: Session, equipment_id: int, data: EquipmentUpdateReques
     """更新"""
     equipment = db.query(Equipment).filter(Equipment.id == equipment_id).first()
     if not equipment:
-        BuinessException(message="设备不存在")
+        raise BusinessException(message="设备不存在")
 
     payload = data.model_dump(exclude_none=True)
     lab_id = payload.get("lab_id", equipment.lab_id)
@@ -74,7 +80,7 @@ def update_equipment(db: Session, equipment_id: int, data: EquipmentUpdateReques
 
     lab = db.query(Lab).filter(Lab.id == lab_id).first()
     if not lab:
-        BuinessException(message="实验室不存在")
+        raise BusinessException(message="实验室不存在")
 
     exist = (
         db.query(Equipment)
@@ -87,7 +93,7 @@ def update_equipment(db: Session, equipment_id: int, data: EquipmentUpdateReques
     )
 
     if exist:
-        raise BuinessException(message="同一实验室不允许出现同名仪器")
+        raise BusinessException(message="同一实验室不允许出现同名仪器")
 
     for filed, value in payload.items():
         setattr(equipment, filed, value)
@@ -101,10 +107,11 @@ def update_equipment(db: Session, equipment_id: int, data: EquipmentUpdateReques
 
 
 def delete_equipment(db: Session, equipment_id: int):
+    """删除"""
     equipment = db.query(Equipment).filter(Equipment.id == equipment_id).first()
 
     if not equipment:
-        BuinessException(message="实验室不存在")
+        raise BusinessException(message="设备不存在")
 
     db.delete(equipment)
     db.commit()

@@ -6,7 +6,6 @@ from app.api.lab import router as lab_router
 from app.api.equipment import router as lab_equipment
 from app.api.reservation import router as reservation
 from app.api.ai import router as ai_router
-from app.schemas import file
 
 api = APIRouter(prefix="/api")
 

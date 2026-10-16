@@ -1,8 +1,10 @@
 import shutil
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from app.common.response import Response
-from app.common.exceptions import BuinessException
+from app.common.exceptions import BusinessException
+from app.dependencies.auth import get_current_user
+from app.models.user import User
 from pathlib import Path
 import os, time
 import uuid
@@ -13,20 +15,23 @@ router = APIRouter(prefix="/files", tags=["文件管理"])
 
 
 @router.post("/upload")
-def upload(file: UploadFile = File(...)):
+def upload(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
     """文件上传接口"""
     if not file.filename:
-        raise BuinessException("message = 文件名不能为空")
+        raise BusinessException(message="文件名不能为空")
 
     # 原始文件名
-    orignal_name = os.path.basename(file.filename)
+    original_name = os.path.basename(file.filename)
 
-    ext = Path(orignal_name).suffix.lower()
+    ext = Path(original_name).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        raise BuinessException(message=f"不支持的文件后缀:{ext}")
+        raise BusinessException(message=f"不支持的文件后缀:{ext}")
 
     if file.size and file.size > MAX_FILE_SIZE:
-        raise BuinessException(message=f"文件不能超过{MAX_FILE_SIZE//1024//1024}MB")
+        raise BusinessException(message=f"文件不能超过{MAX_FILE_SIZE//1024//1024}MB")
 
     # 设置文件唯一名称
     disk_name = f"{int(time.time() *1000 )}_{uuid.uuid4().hex[:8]}{ext}"
@@ -40,7 +45,7 @@ def upload(file: UploadFile = File(...)):
 
     return Response.success(
         data=FileResponse(
-            orignal_name=orignal_name,
+            original_name=original_name,
             disk_name=disk_name,
             size=file.size,
             url=f"/uploads/{disk_name}",

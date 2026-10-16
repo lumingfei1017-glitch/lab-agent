@@ -1,8 +1,6 @@
 import json
-import keyword
 
-from app.api import equipment
-from app.common.exceptions import BuinessException
+from app.common.exceptions import BusinessException
 from app.schemas.ai import ChatMessage, ChatRequest
 from sqlalchemy.orm import Session
 from app.config import settings
@@ -81,7 +79,7 @@ def run_tool(db: Session, name: str, arguments: str) -> str:
             if not lab_id:
                 return json.dumps({"error": "参数缺少实验室lab_id"}, ensure_ascii=False)
             keywords = (args.get("keywords") or "").strip() or None
-            page = equipment_service.get_equiment_page_list(
+            page = equipment_service.get_equipment_page_list(
                 db, page=1, page_size=10, lab_id=int(lab_id), keywords=keywords
             )
             rows = [
@@ -89,7 +87,7 @@ def run_tool(db: Session, name: str, arguments: str) -> str:
                     "id": item.id,
                     "name": item.name,
                     "lab_id": item.lab_id,
-                    "sepc": item.sepc,
+                    "spec": item.spec,
                     "quantity": item.quantity,
                     "status": item.status,
                 }
@@ -116,7 +114,7 @@ SYSTEM_PROMPT = """你是智能实验室预约系统的助手，回答要简洁�
 def get_client() -> OpenAI:
     """创建OPENAI的客户端"""
     if not settings.LLM_API_KEY:
-        raise BuinessException(message="为获取到大模型的api_key")
+        raise BusinessException(message="为获取到大模型的api_key")
 
     return OpenAI(api_key=settings.LLM_API_KEY, base_url=settings.LLM_BASE_URL)
 
@@ -124,14 +122,14 @@ def get_client() -> OpenAI:
 def chat(db: Session, data: ChatRequest):
     """大模型对话"""
     if not data.messages:
-        raise BuinessException(message="对话内容为空")
+        raise BusinessException(message="对话内容为空")
     history = []
 
     for message in data.messages:
         if message.role in ("user", "assistant") and message.content.strip():
             history.append(message.model_dump())
         if not history:
-            raise BuinessException(message="请输入您要对话的内容")
+            raise BusinessException(message="请输入您要对话的内容")
 
     question = next(
         (item["content"] for item in reversed(history) if item["role"] == "user"), ""
@@ -159,7 +157,7 @@ def chat(db: Session, data: ChatRequest):
             if not tool_calls:
                 content = msg.content
                 if not content or not content.strip():
-                    raise BuinessException(message="大模型没有返回内容")
+                    raise BusinessException(message="大模型没有返回内容")
                 return content
 
             messages.append(
@@ -188,4 +186,4 @@ def chat(db: Session, data: ChatRequest):
 
     except Exception:
         logger.exception("调用大模型失败")
-        raise BuinessException(message="大模型调用失败")
+        raise BusinessException(message="大模型调用失败")

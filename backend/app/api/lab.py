@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from app.common.response import Response
 from app.database import get_db
 from app.dependencies.auth import get_current_admin, get_current_user
 from app.models.user import User
-from app.schemas.lab import LabCreateResquest, LabResponse, LabUpdateResquest
+from app.schemas.lab import LabCreateRequest, LabResponse, LabUpdateRequest
 from app.services import lab_service
 
 router = APIRouter(prefix="/lab", tags=["实验室管理"])
@@ -26,7 +25,7 @@ def get_lab_list(
 
 @router.post("")
 def create_lab_list(
-    data: LabCreateResquest,
+    data: LabCreateRequest,
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -37,7 +36,7 @@ def create_lab_list(
 @router.put("/{lab_id}")
 def update_lab_list(
     lab_id: int,
-    data: LabUpdateResquest,
+    data: LabUpdateRequest,
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
