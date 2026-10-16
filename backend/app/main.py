@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
-
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from app.config import UPLOAD_DIR
@@ -19,14 +19,21 @@ from app.common.exceptions import (
     global_excpetion_hadler,
     validation_excpetion_hadler,
 )
-from app.services import reservation_service
+from app.services import kb_service, reservation_service
 import asyncio
+
+logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        await asyncio.to_thread(kb_service.warmup)
+    except Exception:
+        logger.exception("向量数据库预热失败")
+
     task = asyncio.create_task(reservation_service.run_expire_scan())
 
     yield

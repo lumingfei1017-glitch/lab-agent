@@ -105,8 +105,8 @@ def create_reservation(db: Session, current_user: User, data: ReservationCreateR
     if data.end_time < data.start_time:
         raise BuinessException(message="预约结束时间不能小于开始时间")
 
-    if data.date == current_date and data.start_time < current_date:
-        raise BuinessException(message="预约开始时间能小于当前时间")
+    if data.date == current_date and data.start_time < current_time:
+        raise BuinessException(message="预约开始时间不能小于当前时间")
 
     lab = db.query(Lab).filter(Lab.id == data.lab_id).first()
 
@@ -116,7 +116,7 @@ def create_reservation(db: Session, current_user: User, data: ReservationCreateR
     if not lab.status:
         raise BuinessException(message="实验室暂时不可用")
 
-    if data.start_time < lab.open_time and data.end_time > lab.close_time:
+    if data.start_time < lab.open_time or data.end_time > lab.close_time:
         raise BuinessException(message="预约时间段不可用")
 
     if data.equipment_id:
@@ -139,7 +139,7 @@ def create_reservation(db: Session, current_user: User, data: ReservationCreateR
     )
 
     if data.equipment_id:
-        query = query.filter(equipment.id == data.equipment_id)
+        query = query.filter(Equipment.id == data.equipment_id)
     else:
         query = query.filter(Reservation.equipment_id.is_(None))
     res = query.first()
@@ -171,7 +171,7 @@ def expire_pending_reservations():
         changed = False
         for item in items:
             if item.date < today or (item.date == today and item.end_time <= now_time):
-                item.staus = 3
+                item.status = 3
                 changed = True
 
         if changed:
