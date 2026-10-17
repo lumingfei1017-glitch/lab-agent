@@ -5,9 +5,8 @@ from langchain_core.tools import tool
 
 import logging
 
-from sqlalchemy.orm import Session
-
 from app.common.exceptions import BusinessException
+from app.database import SessionLocal
 from app.models.user import User
 from app.schemas.reservation import ReservationCreateRequest
 from app.services import equipment_service, kb_service, lab_service, reservation_service
@@ -15,7 +14,12 @@ from app.services import equipment_service, kb_service, lab_service, reservation
 logger = logging.getLogger(__name__)
 
 
-def build_tools(db: Session, current_user: User):
+def build_tools(current_user: User):
+    # Session 不是线程安全的：ToolNode 会用 asyncio.gather / 线程池并发执行
+    # 同一轮的多个工具，绝不能把请求级 Session 闭包进来共用。
+    # 每个工具内部各自开关一个短生命周期的 SessionLocal。
+    # user 先快照成纯 int，避免工具线程里触碰绑定在请求 Session 上的 ORM 对象。
+    user_id = current_user.id
 
     # 本次 Agent 生命周期内的缓存
     searched_queries = set()
@@ -55,9 +59,10 @@ def build_tools(db: Session, current_user: User):
 
         try:
             keywords = keywords.strip() or None
-            page = lab_service.get_lab_page_list(
-                db, page=1, page_size=10, keywords=keywords, status=1
-            )
+            with SessionLocal() as session:
+                page = lab_service.get_lab_page_list(
+                    session, page=1, page_size=10, keywords=keywords, status=1
+                )
             rows = [
                 {
                     "id": item.id,
@@ -83,9 +88,10 @@ def build_tools(db: Session, current_user: User):
 
         try:
             keywords = keywords.strip()
-            page = equipment_service.get_equipment_page_list(
-                db, page=1, page_size=10, keywords=keywords, lab_id=lab_id
-            )
+            with SessionLocal() as session:
+                page = equipment_service.get_equipment_page_list(
+                    session, page=1, page_size=10, keywords=keywords, lab_id=lab_id
+                )
 
             rows = [
                 {
@@ -127,7 +133,8 @@ def build_tools(db: Session, current_user: User):
                 end_time=end_time,
                 remark=remark,
             )
-            reservation_service.create_reservation(db, current_user, data)
+            with SessionLocal() as session:
+                reservation_service.create_reservation(session, user_id, data)
             return json.dumps(
                 {
                     "ok": True,

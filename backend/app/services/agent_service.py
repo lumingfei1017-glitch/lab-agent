@@ -6,7 +6,6 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, Tool
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from sqlalchemy.orm import Session
 from app.common.exceptions import BusinessException
 from app.config import settings
 from app.models.user import User
@@ -34,8 +33,8 @@ SYSTEM_PROMPT = """你是智能实验室预约系统的 Agent，回答要简洁�
 """
 
 
-def build_agent(db: Session, current_user: User):
-    tools = agent_tools.build_tools(db, current_user)
+def build_agent(current_user: User):
+    tools = agent_tools.build_tools(current_user)
     llm = ChatOpenAI(
         api_key=settings.LLM_API_KEY,
         base_url=settings.LLM_BASE_URL,
@@ -60,7 +59,7 @@ def build_agent(db: Session, current_user: User):
     return graph.compile()
 
 
-def run_agent(db: Session, current_user: User, data: ChatRequest):
+def run_agent(current_user: User, data: ChatRequest):
     """大模型对话"""
     if not data.messages:
         raise BusinessException(message="对话内容为空")
@@ -74,7 +73,7 @@ def run_agent(db: Session, current_user: User, data: ChatRequest):
     if not history:
         raise BusinessException(message="请输入要对话的内容")
 
-    agent = build_agent(db, current_user)
+    agent = build_agent(current_user)
     try:
         result = agent.invoke(
             {"messages": [SystemMessage(content=SYSTEM_PROMPT), *history]},
@@ -152,7 +151,7 @@ def _build_history(data: ChatRequest) -> list:
 
 
 async def stream_agent(
-    db: Session, current_user: User, data: ChatRequest
+    current_user: User, data: ChatRequest
 ) -> AsyncIterator[dict]:
     """
     生成器：边跑Agent 边 yield事件，供SSE推给前端
@@ -160,7 +159,7 @@ async def stream_agent(
     """
     try:
         history = _build_history(data)
-        agent = build_agent(db, current_user)
+        agent = build_agent(current_user)
         inputs = {"messages": [SystemMessage(content=SYSTEM_PROMPT), *history]}
 
         yield {"type": "status", "message": "正在思考"}

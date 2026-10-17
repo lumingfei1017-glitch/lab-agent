@@ -51,5 +51,5 @@ def create_reservation(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    res = reservation_service.create_reservation(db, current_user, data)
+    res = reservation_service.create_reservation(db, current_user.id, data)
     return Response.success()

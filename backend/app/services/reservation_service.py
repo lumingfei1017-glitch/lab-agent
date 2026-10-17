@@ -94,8 +94,8 @@ def audit_reservation(db: Session, reservation_id: int, status: int):
     db.commit()
 
 
-def create_reservation(db: Session, current_user: User, data: ReservationCreateRequest):
-    """创建预约记录"""
+def create_reservation(db: Session, user_id: int, data: ReservationCreateRequest):
+    """创建预约记录（user_id 传纯 int，Agent 工具线程并发时不共享 ORM 对象）"""
     now = datetime.now()
     current_date = now.strftime("%Y-%m-%d")
     current_time = now.strftime("%H:%M")
@@ -166,7 +166,7 @@ def create_reservation(db: Session, current_user: User, data: ReservationCreateR
             raise BusinessException(message="该时段实验室已被预约")
 
     reservation_model = Reservation(
-        user_id=current_user.id,
+        user_id=user_id,
         lab_id=data.lab_id,
         equipment_id=data.equipment_id,
         date=data.date,
